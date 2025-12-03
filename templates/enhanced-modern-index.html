@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intelligent Document Processing App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-shadow { box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .upload-area { transition: all 0.3s ease; }
+        .upload-area:hover { transform: translateY(-2px); }
+        .processing { animation: pulse 2s infinite; }
+        .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white py-6 shadow-lg">
+        <div class="container mx-auto px-6">
+            <div class="flex items-center space-x-3">
+                <i data-lucide="file-text" class="w-8 h-8"></i>
+                <h1 class="text-3xl font-bold">Intelligent Document Processing App</h1>
+            </div>
+            <p class="mt-2 text-blue-100">Intelligent OCR with AWS</p>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Upload Section -->
+        <div class="bg-white rounded-xl card-shadow p-8 mb-8">
+            <div class="text-center mb-6">
+                <i data-lucide="upload-cloud" class="w-16 h-16 mx-auto text-blue-500 mb-4"></i>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Upload Document</h2>
+                <p class="text-gray-600">Drag & drop or click to select files (PDF, JPG, PNG)</p>
+            </div>
+            
+            <form id="uploadForm" enctype="multipart/form-data" class="space-y-6">
+                <div class="upload-area border-2 border-dashed border-blue-300 rounded-lg p-8 text-center hover:border-blue-500 cursor-pointer" 
+                     onclick="document.getElementById('fileInput').click()">
+                    <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" class="hidden">
+                    <div id="uploadText">
+                        <i data-lucide="file-plus" class="w-12 h-12 mx-auto text-gray-400 mb-3"></i>
+                        <p class="text-gray-600">Click here or drag files to upload</p>
+                    </div>
+                </div>
+                
+                <button type="submit" id="processBtn" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 flex items-center justify-center space-x-2">
+                    <i data-lucide="zap" class="w-5 h-5"></i>
+                    <span>Process Document</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Processing Status -->
+        <div id="processingStatus" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8">
+            <div class="flex items-center space-x-3">
+                <div class="processing w-6 h-6 bg-blue-500 rounded-full"></div>
+                <span class="text-blue-700 font-medium">Processing document with Step Functions...</span>
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="bg-white rounded-xl card-shadow p-8 mb-8">
+            <div class="flex items-center space-x-3 mb-6">
+                <i data-lucide="search" class="w-6 h-6 text-gray-600"></i>
+                <h3 class="text-xl font-bold text-gray-800">Search Documents</h3>
+            </div>
+            
+            <div class="flex space-x-4">
+                <input type="text" id="searchInput" placeholder="Search documents..." 
+                       class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <button onclick="searchDocuments()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center space-x-2">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                    <span>Search</span>
+                </button>
+            </div>
+            
+            <div id="searchResults" class="mt-6 hidden">
+                <h4 class="font-semibold text-gray-800 mb-3">Search Results</h4>
+                <div id="searchResultsList" class="space-y-3"></div>
+            </div>
+        </div>
+
+        <!-- Analytics Dashboard -->
+        <div class="bg-white rounded-xl card-shadow p-8 mb-8">
+            <div class="flex items-center space-x-3 mb-6">
+                <i data-lucide="bar-chart-3" class="w-6 h-6 text-gray-600"></i>
+                <h3 class="text-xl font-bold text-gray-800">Analytics Dashboard</h3>
+                <button onclick="loadAnalytics()" class="ml-auto text-blue-600 hover:text-blue-800 flex items-center space-x-1">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    <span>Refresh</span>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-600 text-sm font-medium">Total Documents</p>
+                            <p class="text-2xl font-bold text-blue-800" id="totalDocs">-</p>
+                        </div>
+                        <i data-lucide="file-text" class="w-8 h-8 text-blue-500"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-green-600 text-sm font-medium">Avg Confidence</p>
+                            <p class="text-2xl font-bold text-green-800" id="avgConfidence">-</p>
+                        </div>
+                        <i data-lucide="target" class="w-8 h-8 text-green-500"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-purple-50 to-purple-100 p-6 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-purple-600 text-sm font-medium">Avg Processing Time</p>
+                            <p class="text-2xl font-bold text-purple-800" id="avgProcessingTime">-</p>
+                        </div>
+                        <i data-lucide="clock" class="w-8 h-8 text-purple-500"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="hidden bg-white rounded-xl card-shadow p-8 mb-8">
+            <div class="flex items-center space-x-3 mb-6">
+                <i data-lucide="check-circle" class="w-6 h-6 text-green-500"></i>
+                <h3 class="text-xl font-bold text-gray-800">Processing Results</h3>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="file-check" class="w-5 h-5 text-green-600"></i>
+                        <span class="text-green-800 font-medium">Status</span>
+                    </div>
+                    <p class="text-green-700 mt-1" id="resultStatus">Processing</p>
+                </div>
+                
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="type" class="w-5 h-5 text-blue-600"></i>
+                        <span class="text-blue-800 font-medium">Word Count</span>
+                    </div>
+                    <p class="text-blue-700 mt-1" id="wordCount">-</p>
+                </div>
+                
+                <div class="bg-purple-50 p-4 rounded-lg">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="target" class="w-5 h-5 text-purple-600"></i>
+                        <span class="text-purple-800 font-medium">Confidence</span>
+                    </div>
+                    <p class="text-purple-700 mt-1" id="confidenceScore">-</p>
+                </div>
+                
+                <div class="bg-orange-50 p-4 rounded-lg">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="clock" class="w-5 h-5 text-orange-600"></i>
+                        <span class="text-orange-800 font-medium">Processing Time</span>
+                    </div>
+                    <p class="text-orange-700 mt-1" id="processingTime">-</p>
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 rounded-lg p-6">
+                <h4 class="font-semibold text-gray-800 mb-3 flex items-center space-x-2">
+                    <i data-lucide="text" class="w-5 h-5"></i>
+                    <span>Extracted Text</span>
+                </h4>
+                <div id="extractedText" class="bg-white p-4 rounded border max-h-64 overflow-y-auto text-gray-700 leading-relaxed"></div>
+            </div>
+        </div>
+
+        <!-- Documents History -->
+        <div class="bg-white rounded-xl card-shadow p-8">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center space-x-3">
+                    <i data-lucide="history" class="w-6 h-6 text-gray-600"></i>
+                    <h3 class="text-xl font-bold text-gray-800">Recent Documents</h3>
+                </div>
+                <button onclick="loadDocuments()" class="text-blue-600 hover:text-blue-800 flex items-center space-x-1">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    <span>Refresh</span>
+                </button>
+            </div>
+            
+            <div id="documentsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="text-center py-8 text-gray-500">
+                    <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                    <p>No documents processed yet</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let startTime;
+        
+        lucide.createIcons();
+        
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('uploadText').innerHTML = `
+                    <i data-lucide="file" class="w-12 h-12 mx-auto text-blue-500 mb-3"></i>
+                    <p class="text-blue-600 font-medium">${file.name}</p>
+                    <p class="text-gray-500 text-sm">${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                `;
+                lucide.createIcons();
+            }
+        });
+        
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file first');
+                return;
+            }
+            
+            startTime = Date.now();
+            showProcessing();
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                hideProcessing();
+                
+                if (result.status === 'processing') {
+                    showResults(result);
+                    pollStatus(result.document_id);
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                hideProcessing();
+                showError('Upload failed: ' + error.message);
+            }
+        });
+        
+        function showProcessing() {
+            document.getElementById('processingStatus').classList.remove('hidden');
+        }
+        
+        function hideProcessing() {
+            document.getElementById('processingStatus').classList.add('hidden');
+        }
+        
+        function showResults(result) {
+            document.getElementById('resultStatus').textContent = result.status;
+            document.getElementById('extractedText').textContent = result.message || 'Processing with Step Functions...';
+            document.getElementById('resultsSection').classList.remove('hidden');
+        }
+        
+        function showError(message) {
+            alert('Error: ' + message);
+        }
+        
+        function pollStatus(documentId) {
+            const pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/status/${documentId}`);
+                    const status = await response.json();
+                    
+                    if (status.status === 'completed') {
+                        clearInterval(pollInterval);
+                        document.getElementById('resultStatus').textContent = 'Completed';
+                        document.getElementById('extractedText').textContent = status.extracted_text || 'Processing completed';
+                        if (status.confidence_score) {
+                            document.getElementById('confidenceScore').textContent = (status.confidence_score * 100).toFixed(1) + '%';
+                        }
+                        loadDocuments();
+                        loadAnalytics();
+                    } else if (status.status === 'failed') {
+                        clearInterval(pollInterval);
+                        document.getElementById('resultStatus').textContent = 'Failed';
+                        document.getElementById('extractedText').textContent = 'Processing failed';
+                    }
+                } catch (error) {
+                    console.error('Status polling error:', error);
+                }
+            }, 3000);
+        }
+        
+        async function loadDocuments() {
+            try {
+                const response = await fetch('/documents');
+                const documents = await response.json();
+                
+                const grid = document.getElementById('documentsGrid');
+                
+                if (documents.length === 0) {
+                    grid.innerHTML = `
+                        <div class="text-center py-8 text-gray-500 col-span-full">
+                            <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+                            <p>No documents processed yet</p>
+                        </div>
+                    `;
+                } else {
+                    grid.innerHTML = documents.map(doc => `
+                        <div class="bg-gray-50 p-4 rounded-lg border hover:shadow-md transition-shadow">
+                            <div class="flex items-start justify-between mb-2">
+                                <h4 class="font-medium text-gray-800 truncate">${doc.filename || doc.document_id}</h4>
+                                <span class="px-2 py-1 text-xs rounded-full ${
+                                    doc.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                    doc.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-red-100 text-red-800'
+                                }">${doc.status}</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">${new Date(doc.timestamp || doc.upload_timestamp).toLocaleDateString()}</p>
+                            ${doc.confidence_score ? `<p class="text-xs text-gray-500">Confidence: ${(doc.confidence_score * 100).toFixed(1)}%</p>` : ''}
+                            ${doc.document_type ? `<p class="text-xs text-gray-500">Type: ${doc.document_type}</p>` : ''}
+                        </div>
+                    `).join('');
+                }
+                
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Error loading documents:', error);
+            }
+        }
+        
+        async function searchDocuments() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+            
+            try {
+                const response = await fetch('/search', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({query})
+                });
+                
+                const results = await response.json();
+                const resultsDiv = document.getElementById('searchResults');
+                const resultsList = document.getElementById('searchResultsList');
+                
+                if (results.hits && results.hits.length > 0) {
+                    resultsList.innerHTML = results.hits.map(hit => `
+                        <div class="bg-gray-50 p-4 rounded-lg border">
+                            <h4 class="font-medium text-gray-800 mb-2">${hit._source.filename || hit._source.document_id}</h4>
+                            <p class="text-sm text-gray-600 line-clamp-3">${hit._source.extracted_text?.substring(0, 200)}...</p>
+                            <div class="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                                <span>Score: ${hit._score.toFixed(2)}</span>
+                                ${hit._source.confidence_score ? `<span>Confidence: ${(hit._source.confidence_score * 100).toFixed(1)}%</span>` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                    resultsDiv.classList.remove('hidden');
+                } else {
+                    resultsList.innerHTML = '<p class="text-gray-500">No results found</p>';
+                    resultsDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+        }
+        
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('/analytics');
+                const analytics = await response.json();
+                
+                if (analytics.documents_by_type) {
+                    const totalDocs = analytics.documents_by_type.buckets.reduce((sum, bucket) => sum + bucket.doc_count, 0);
+                    document.getElementById('totalDocs').textContent = totalDocs;
+                }
+                
+                if (analytics.processing_time_avg && analytics.processing_time_avg.value) {
+                    document.getElementById('avgProcessingTime').textContent = analytics.processing_time_avg.value.toFixed(1) + 's';
+                }
+                
+                if (analytics.confidence_distribution) {
+                    const buckets = analytics.confidence_distribution.buckets;
+                    const totalDocs = buckets.reduce((sum, bucket) => sum + bucket.doc_count, 0);
+                    const weightedSum = buckets.reduce((sum, bucket) => sum + (bucket.key * bucket.doc_count), 0);
+                    const avgConf = totalDocs > 0 ? weightedSum / totalDocs : 0;
+                    
+                    if (avgConf > 0) {
+                        document.getElementById('avgConfidence').textContent = (avgConf * 100).toFixed(1) + '%';
+                    }
+                }
+            } catch (error) {
+                console.error('Analytics error:', error);
+            }
+        }
+        
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchDocuments();
+            }
+        });
+        
+        loadDocuments();
+        loadAnalytics();
+    </script>
+</body>
+</html>
