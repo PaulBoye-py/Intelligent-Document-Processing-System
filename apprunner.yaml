@@ -1,0 +1,19 @@
+version: 1.0
+runtime: docker
+build:
+  commands:
+    build:
+      - echo "Building Docker image"
+run:
+  runtime-version: latest
+  command: gunicorn --bind 0.0.0.0:8000 --workers 2 modern_app:app
+  network:
+    port: 8000
+    env: PORT
+  env:
+    - name: AWS_DEFAULT_REGION
+      value: us-east-1
+    - name: DEPLOYMENT
+      value: production
+    - name: SECRET_KEY
+      value: FpEjMYYC5ilS/ApNTrqOCvdX4e8s4NvECFiJ6QQm
