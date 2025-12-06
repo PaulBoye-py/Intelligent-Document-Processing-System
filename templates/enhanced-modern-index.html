@@ -19,11 +19,19 @@
     <!-- Header -->
     <header class="gradient-bg text-white py-6 shadow-lg">
         <div class="container mx-auto px-6">
-            <div class="flex items-center space-x-3">
-                <i data-lucide="file-text" class="w-8 h-8"></i>
-                <h1 class="text-3xl font-bold">Intelligent Document Processing App</h1>
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i data-lucide="file-text" class="w-8 h-8"></i>
+                    <div>
+                        <h1 class="text-3xl font-bold">Intelligent Document Processing App</h1>
+                        <p class="mt-1 text-blue-100">Intelligent OCR with AWS</p>
+                    </div>
+                </div>
+                <button onclick="logout()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg flex items-center space-x-2 transition duration-300">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                    <span>Logout</span>
+                </button>
             </div>
-            <p class="mt-2 text-blue-100">Intelligent OCR with AWS</p>
         </div>
     </header>
 
@@ -135,7 +143,7 @@
                 <h3 class="text-xl font-bold text-gray-800">Processing Results</h3>
             </div>
             
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                 <div class="bg-green-50 p-4 rounded-lg">
                     <div class="flex items-center space-x-2">
                         <i data-lucide="file-check" class="w-5 h-5 text-green-600"></i>
@@ -167,14 +175,28 @@
                     </div>
                     <p class="text-orange-700 mt-1" id="processingTime">-</p>
                 </div>
+                
+                <div class="bg-indigo-50 p-4 rounded-lg">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="tag" class="w-5 h-5 text-indigo-600"></i>
+                        <span class="text-indigo-800 font-medium">Classification</span>
+                    </div>
+                    <p class="text-indigo-700 mt-1" id="documentClassification">-</p>
+                </div>
             </div>
             
             <div class="bg-gray-50 rounded-lg p-6">
-                <h4 class="font-semibold text-gray-800 mb-3 flex items-center space-x-2">
-                    <i data-lucide="text" class="w-5 h-5"></i>
-                    <span>Extracted Text</span>
-                </h4>
-                <div id="extractedText" class="bg-white p-4 rounded border max-h-64 overflow-y-auto text-gray-700 leading-relaxed"></div>
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-semibold text-gray-800 flex items-center space-x-2">
+                        <i data-lucide="text" class="w-5 h-5"></i>
+                        <span>Extracted Text</span>
+                    </h4>
+                    <button id="copyTextBtn" onclick="copyExtractedText()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center space-x-1">
+                        <i data-lucide="copy" class="w-4 h-4"></i>
+                        <span>Copy</span>
+                    </button>
+                </div>
+                <div id="extractedText" class="bg-white p-4 rounded border max-h-64 overflow-y-auto text-gray-700 leading-relaxed whitespace-pre-wrap"></div>
             </div>
         </div>
 
@@ -200,8 +222,74 @@
         </div>
     </div>
 
+    <!-- Chatbot Widget -->
+    <div id="chatWidget" class="fixed bottom-4 right-4 z-50">
+        <!-- Chat Toggle Button -->
+        <button id="chatToggle" onclick="toggleChat()" class="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-all duration-300">
+            <i data-lucide="message-circle" class="w-6 h-6"></i>
+        </button>
+        
+        <!-- Chat Window -->
+        <div id="chatWindow" class="hidden absolute bottom-16 right-0 w-80 bg-white rounded-lg shadow-xl border">
+            <div class="bg-blue-600 text-white p-4 rounded-t-lg flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="bot" class="w-5 h-5"></i>
+                    <span class="font-medium">Document Assistant</span>
+                </div>
+                <button onclick="toggleChat()" class="text-white hover:text-gray-200">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            
+            <div id="chatMessages" class="h-64 overflow-y-auto p-4 space-y-3">
+                <div class="bg-gray-100 p-3 rounded-lg mr-8">
+                    <p class="text-sm text-gray-700">Hi! I'm your AI document assistant powered by Amazon Bedrock. I can help you:</p>
+                    <ul class="text-xs text-gray-600 mt-2 space-y-1">
+                        <li>• Summarize your documents</li>
+                        <li>• Find specific information</li>
+                        <li>• Compare documents</li>
+                        <li>• Extract key data (amounts, dates, names)</li>
+                        <li>• Answer questions about content</li>
+                    </ul>
+                    <p class="text-xs text-gray-500 mt-2">Try: "What documents do I have?" or "Summarize my invoices"</p>
+                </div>
+            </div>
+            
+            <div class="p-4 border-t">
+                <div class="flex space-x-2">
+                    <input type="text" id="chatInput" placeholder="Ask about your documents..." 
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <button onclick="sendMessage()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let startTime;
+        let authToken = localStorage.getItem('access_token');
+        let conversationHistory = [];
+        
+        // Check authentication on page load
+        if (!authToken) {
+            window.location.href = '/login-page';
+        }
+        
+        // Add auth header to all requests
+        function makeAuthenticatedRequest(url, options = {}) {
+            options.headers = options.headers || {};
+            options.headers['Authorization'] = `Bearer ${authToken}`;
+            return fetch(url, options);
+        }
+        
+        // Logout function
+        function logout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('id_token');
+            window.location.href = '/login-page';
+        }
         
         lucide.createIcons();
         
@@ -235,7 +323,7 @@
             formData.append('file', file);
             
             try {
-                const response = await fetch('/upload', {
+                const response = await makeAuthenticatedRequest('/upload', {
                     method: 'POST',
                     body: formData
                 });
@@ -243,7 +331,11 @@
                 const result = await response.json();
                 hideProcessing();
                 
-                if (result.status === 'processing') {
+                if (result.status === 'completed') {
+                    showResults(result);
+                    loadDocuments();
+                    loadAnalytics();
+                } else if (result.status === 'processing') {
                     showResults(result);
                     pollStatus(result.document_id);
                 } else {
@@ -265,7 +357,22 @@
         
         function showResults(result) {
             document.getElementById('resultStatus').textContent = result.status;
-            document.getElementById('extractedText').textContent = result.message || 'Processing with Step Functions...';
+            document.getElementById('extractedText').textContent = result.text || result.full_text || result.message || 'Processing...';
+            
+            // Update metrics if available
+            if (result.word_count) {
+                document.getElementById('wordCount').textContent = result.word_count;
+            }
+            if (result.confidence_score) {
+                document.getElementById('confidenceScore').textContent = (result.confidence_score * 100).toFixed(1) + '%';
+            }
+            if (result.processing_time) {
+                document.getElementById('processingTime').textContent = result.processing_time + 's';
+            }
+            if (result.document_classification) {
+                document.getElementById('documentClassification').textContent = result.document_classification.charAt(0).toUpperCase() + result.document_classification.slice(1);
+            }
+            
             document.getElementById('resultsSection').classList.remove('hidden');
         }
         
@@ -276,16 +383,12 @@
         function pollStatus(documentId) {
             const pollInterval = setInterval(async () => {
                 try {
-                    const response = await fetch(`/status/${documentId}`);
+                    const response = await makeAuthenticatedRequest(`/status/${documentId}`);
                     const status = await response.json();
                     
                     if (status.status === 'completed') {
                         clearInterval(pollInterval);
-                        document.getElementById('resultStatus').textContent = 'Completed';
-                        document.getElementById('extractedText').textContent = status.extracted_text || 'Processing completed';
-                        if (status.confidence_score) {
-                            document.getElementById('confidenceScore').textContent = (status.confidence_score * 100).toFixed(1) + '%';
-                        }
+                        showResults(status);
                         loadDocuments();
                         loadAnalytics();
                     } else if (status.status === 'failed') {
@@ -301,7 +404,7 @@
         
         async function loadDocuments() {
             try {
-                const response = await fetch('/documents');
+                const response = await makeAuthenticatedRequest('/documents');
                 const documents = await response.json();
                 
                 const grid = document.getElementById('documentsGrid');
@@ -314,7 +417,7 @@
                         </div>
                     `;
                 } else {
-                    grid.innerHTML = documents.map(doc => `
+                    grid.innerHTML = documents.map((doc, index) => `
                         <div class="bg-gray-50 p-4 rounded-lg border hover:shadow-md transition-shadow">
                             <div class="flex items-start justify-between mb-2">
                                 <h4 class="font-medium text-gray-800 truncate">${doc.filename || doc.document_id}</h4>
@@ -325,8 +428,18 @@
                                 }">${doc.status}</span>
                             </div>
                             <p class="text-sm text-gray-600 mb-2">${new Date(doc.timestamp || doc.upload_timestamp).toLocaleDateString()}</p>
-                            ${doc.confidence_score ? `<p class="text-xs text-gray-500">Confidence: ${(doc.confidence_score * 100).toFixed(1)}%</p>` : ''}
-                            ${doc.document_type ? `<p class="text-xs text-gray-500">Type: ${doc.document_type}</p>` : ''}
+                            ${doc.document_classification ? `<p class="text-xs text-blue-600 mb-1 font-medium">${doc.document_classification.charAt(0).toUpperCase() + doc.document_classification.slice(1)}</p>` : ''}
+                            ${doc.confidence_score ? `<p class="text-xs text-gray-500 mb-1">Confidence: ${(doc.confidence_score * 100).toFixed(1)}%</p>` : ''}
+                            ${doc.word_count ? `<p class="text-xs text-gray-500 mb-2">Words: ${doc.word_count}</p>` : ''}
+                            ${doc.extracted_text && doc.status === 'completed' ? `
+                                <div class="mt-3">
+                                    <button onclick="copyDocumentText('${doc.extracted_text.replace(/'/g, "\\'").replace(/"/g, '\\"')}', ${index})" 
+                                            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs flex items-center justify-center space-x-1">
+                                        <i data-lucide="copy" class="w-3 h-3"></i>
+                                        <span id="copyBtn${index}">Copy Text</span>
+                                    </button>
+                                </div>
+                            ` : ''}
                         </div>
                     `).join('');
                 }
@@ -342,7 +455,7 @@
             if (!query) return;
             
             try {
-                const response = await fetch('/search', {
+                const response = await makeAuthenticatedRequest('/search', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({query})
@@ -353,16 +466,28 @@
                 const resultsList = document.getElementById('searchResultsList');
                 
                 if (results.hits && results.hits.length > 0) {
-                    resultsList.innerHTML = results.hits.map(hit => `
-                        <div class="bg-gray-50 p-4 rounded-lg border">
-                            <h4 class="font-medium text-gray-800 mb-2">${hit._source.filename || hit._source.document_id}</h4>
-                            <p class="text-sm text-gray-600 line-clamp-3">${hit._source.extracted_text?.substring(0, 200)}...</p>
-                            <div class="mt-2 flex items-center space-x-4 text-xs text-gray-500">
-                                <span>Score: ${hit._score.toFixed(2)}</span>
-                                ${hit._source.confidence_score ? `<span>Confidence: ${(hit._source.confidence_score * 100).toFixed(1)}%</span>` : ''}
+                    resultsList.innerHTML = results.hits.map(hit => {
+                        const doc = hit._source;
+                        const matchReasons = hit.match_reasons ? hit.match_reasons.join(', ') : '';
+                        return `
+                        <div class="bg-gray-50 p-4 rounded-lg border hover:shadow-md transition-shadow">
+                            <div class="flex items-start justify-between mb-2">
+                                <h4 class="font-medium text-gray-800">${doc.filename || doc.document_id}</h4>
+                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                                    ${doc.document_classification || 'general'}
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-600 line-clamp-3 mb-2">${doc.extracted_text?.substring(0, 200)}...</p>
+                            <div class="flex items-center justify-between text-xs text-gray-500">
+                                <div class="flex items-center space-x-3">
+                                    <span>Score: ${hit._score.toFixed(1)}</span>
+                                    ${doc.confidence_score ? `<span>Confidence: ${(doc.confidence_score * 100).toFixed(1)}%</span>` : ''}
+                                    ${doc.word_count ? `<span>Words: ${doc.word_count}</span>` : ''}
+                                </div>
+                                ${matchReasons ? `<span class="text-blue-600">Found in: ${matchReasons}</span>` : ''}
                             </div>
                         </div>
-                    `).join('');
+                    `}).join('');
                     resultsDiv.classList.remove('hidden');
                 } else {
                     resultsList.innerHTML = '<p class="text-gray-500">No results found</p>';
@@ -375,7 +500,7 @@
         
         async function loadAnalytics() {
             try {
-                const response = await fetch('/analytics');
+                const response = await makeAuthenticatedRequest('/analytics');
                 const analytics = await response.json();
                 
                 if (analytics.documents_by_type) {
@@ -402,9 +527,127 @@
             }
         }
         
+        function copyExtractedText() {
+            const textElement = document.getElementById('extractedText');
+            const text = textElement.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById('copyTextBtn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i><span>Copied!</span>';
+                lucide.createIcons();
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    lucide.createIcons();
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy text to clipboard');
+            });
+        }
+        
+        function copyDocumentText(text, index) {
+            navigator.clipboard.writeText(text).then(() => {
+                const btnElement = document.getElementById(`copyBtn${index}`);
+                if (btnElement) {
+                    btnElement.textContent = 'Copied!';
+                    setTimeout(() => {
+                        btnElement.textContent = 'Copy Text';
+                    }, 2000);
+                }
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy text to clipboard');
+            });
+        }
+        
+        function toggleChat() {
+            const chatWindow = document.getElementById('chatWindow');
+            chatWindow.classList.toggle('hidden');
+            if (!chatWindow.classList.contains('hidden')) {
+                document.getElementById('chatInput').focus();
+            }
+        }
+        
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            // Add user message to UI and history
+            addChatMessage(message, 'user');
+            conversationHistory.push({role: 'user', content: message});
+            input.value = '';
+            
+            // Show typing indicator
+            const typingDiv = addChatMessage('Analyzing your documents...', 'bot', true);
+            
+            try {
+                const response = await makeAuthenticatedRequest('/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        message: message,
+                        history: conversationHistory.slice(-10) // Send last 10 messages
+                    })
+                });
+                
+                const result = await response.json();
+                
+                // Remove typing indicator
+                typingDiv.remove();
+                
+                // Add bot response
+                const botMessage = result.response;
+                addChatMessage(botMessage, 'bot');
+                conversationHistory.push({role: 'assistant', content: botMessage});
+                
+                // Show source indicator
+                if (result.source === 'bedrock') {
+                    addChatMessage(`✨ Powered by Amazon Bedrock • Analyzed ${result.document_count || 0} documents`, 'system');
+                }
+                
+            } catch (error) {
+                typingDiv.remove();
+                addChatMessage('Sorry, I encountered an error. Please try again.', 'bot');
+            }
+        }
+        
+        function addChatMessage(message, sender, isTemporary = false) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            
+            if (sender === 'user') {
+                messageDiv.className = 'bg-blue-100 p-3 rounded-lg ml-8';
+                messageDiv.innerHTML = `<p class="text-sm text-blue-800">${message}</p>`;
+            } else if (sender === 'system') {
+                messageDiv.className = 'bg-purple-50 p-2 rounded text-center';
+                messageDiv.innerHTML = `<p class="text-xs text-purple-600">${message}</p>`;
+            } else {
+                messageDiv.className = 'bg-gray-100 p-3 rounded-lg mr-8';
+                if (isTemporary) {
+                    messageDiv.innerHTML = `<p class="text-sm text-gray-500 italic">${message}</p>`;
+                } else {
+                    messageDiv.innerHTML = `<p class="text-sm text-gray-700 whitespace-pre-wrap">${message}</p>`;
+                }
+            }
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            return messageDiv;
+        }
+        
         document.getElementById('searchInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 searchDocuments();
+            }
+        });
+        
+        document.getElementById('chatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
             }
         });
         
