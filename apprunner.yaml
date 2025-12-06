@@ -5,8 +5,6 @@ build:
     build:
       - echo "Building Docker image"
 run:
-  runtime-version: latest
-  command: gunicorn --bind 0.0.0.0:8000 --workers 2 modern_app:app
   network:
     port: 8000
     env: PORT
