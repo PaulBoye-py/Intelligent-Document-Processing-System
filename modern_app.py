@@ -545,7 +545,7 @@ def human_review_status(document_id):
         return jsonify({'status': 'not_found', 'message': str(e)})
 
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', 8000))
+    port = int(os.getenv('PORT', 8080))
     debug = os.getenv('DEPLOYMENT') != 'production'
     
     if debug:
