@@ -205,7 +205,7 @@ WorkingDirectory=/home/ec2-user/Intelligent-Document-Processing-System
 Environment="PATH=/home/ec2-user/Intelligent-Document-Processing-System/venv/bin"
 Environment="DEPLOYMENT=production"
 Environment="AWS_DEFAULT_REGION=us-east-1"
-Environment="SECRET_KEY=FpEjMYYC5ilS/ApNTrqOCvdX4e8s4NvECFiJ6QQm"
+Environment="SECRET_KEY=your-secret-key"
 ExecStart=/home/ec2-user/Intelligent-Document-Processing-System/venv/bin/gunicorn --bind 0.0.0.0:8080 --workers 2 --timeout 300 modern_app:app
 Restart=always
 
