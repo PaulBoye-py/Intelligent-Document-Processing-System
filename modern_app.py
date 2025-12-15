@@ -229,76 +229,90 @@ def upload():
     try:
         file = request.files['file']
         document_id = str(uuid.uuid4())
+
+        original_filename = file.filename
+        file_extension = original_filename.lower().split('.')[-1]
+
+        # Convert HEIC / HEIF to JPEG before upload
+        if file_extension in ['heic', 'heif']:
+            converted_file, new_filename = convert_heic_to_jpeg(file)
+            file = converted_file
+            file.filename = new_filename
+            file_extension = 'jpg'
+
         key = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{document_id}_{file.filename}"
-        
+
         # Upload to S3
         s3.upload_fileobj(file, S3_BUCKET, key)
-        
-        # Process with Textract - handle PDF vs image files differently
-        file_extension = file.filename.lower().split('.')[-1]
-        
+
+        # TEXTRACT PROCESSING
         if file_extension == 'pdf':
-            # For PDF files, use asynchronous processing
             response = textract.start_document_text_detection(
                 DocumentLocation={'S3Object': {'Bucket': S3_BUCKET, 'Name': key}}
             )
+
             job_id = response['JobId']
-            
-            # Poll for completion (simplified for demo)
             import time
-            max_attempts = 30
             attempt = 0
-            
-            while attempt < max_attempts:
+
+            while attempt < 30:
                 time.sleep(2)
                 result = textract.get_document_text_detection(JobId=job_id)
-                
+
                 if result['JobStatus'] == 'SUCCEEDED':
-                    text = ' '.join([block['Text'] for block in result['Blocks'] if block['BlockType'] == 'LINE'])
+                    text = ' '.join(
+                        block['Text']
+                        for block in result['Blocks']
+                        if block['BlockType'] == 'LINE'
+                    )
                     break
-                elif result['JobStatus'] == 'FAILED':
-                    raise Exception(f"Textract job failed: {result.get('StatusMessage', 'Unknown error')}")
-                
+
+                if result['JobStatus'] == 'FAILED':
+                    raise Exception(result.get('StatusMessage', 'Textract failed'))
+
                 attempt += 1
-            
-            if attempt >= max_attempts:
-                raise Exception("Textract processing timed out")
+
+            if attempt >= 30:
+                raise Exception('Textract processing timed out')
+
         else:
-            # For image files, use synchronous processing
             response = textract.detect_document_text(
                 Document={'S3Object': {'Bucket': S3_BUCKET, 'Name': key}}
             )
-            text = ' '.join([block['Text'] for block in response['Blocks'] if block['BlockType'] == 'LINE'])
-        
-        # Classify document
+            text = ' '.join(
+                block['Text']
+                for block in response['Blocks']
+                if block['BlockType'] == 'LINE'
+            )
+
+        # DOCUMENT CLASSIFICATION
         doc_classification = classify_document(text, file.filename)
-        
-        # Extract entities using Comprehend
+
+        # ENTITY EXTRACTION
         entities = []
         try:
-            if len(text.strip()) > 0:
+            if text.strip():
                 comprehend_response = comprehend.detect_entities(
-                    Text=text[:5000],  # Comprehend has text limit
+                    Text=text[:5000],
                     LanguageCode='en'
                 )
                 entities = [{
-                    'text': entity['Text'],
-                    'type': entity['Type'],
-                    'confidence': Decimal(str(entity['Score']))
-                } for entity in comprehend_response['Entities']]
+                    'text': e['Text'],
+                    'type': e['Type'],
+                    'confidence': Decimal(str(e['Score']))
+                } for e in comprehend_response['Entities']]
         except Exception as e:
             print(f"Comprehend error: {e}")
-        
-        # Calculate confidence score
+
         confidence = 0.95 if len(text.strip()) > 10 else 0.75
-        
-        # Store in DynamoDB with user_id
         user_id = get_user_id()
+
         table = dynamodb.Table('aws-idp-documents-dev')
         table.put_item(Item={
             'document_id': document_id,
             'user_id': user_id,
             'filename': file.filename,
+            'original_filename': original_filename,
             'extracted_text': text,
             'status': 'completed',
             'confidence_score': Decimal(str(confidence)),
@@ -307,25 +321,28 @@ def upload():
             'document_type': file_extension,
             'document_classification': doc_classification,
             'entities': entities,
-            'processing_method': 'async' if file_extension == 'pdf' else 'sync'
+            'processing_method': 'async' if file_extension == 'pdf' else 'sync',
+            'preprocessing_steps': ['heic_to_jpeg'] if original_filename != file.filename else []
         })
-        
+
         return jsonify({
             'status': 'completed',
             'document_id': document_id,
             'filename': file.filename,
-            'text': text,
-            'full_text': text,
+            'original_filename': original_filename,
             'word_count': len(text.split()),
             'confidence_score': confidence,
             'document_classification': doc_classification,
             'entities': entities,
-            'processing_time': 2.5,
             'message': 'Document processed successfully'
         })
-        
+
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
+
 
 @app.route('/status/<document_id>')
 def get_status(document_id):
